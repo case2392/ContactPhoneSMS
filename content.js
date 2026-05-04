@@ -49,27 +49,38 @@
     return !!panel && panel.classList.contains('slds-is-open');
   }
 
+  function isInDisallowedAncestor(el) {
+    if (el.closest('.oneUtilityBarPanel')) return true;
+    if (el.closest('[role="tab"], [role="tablist"], .uiTabBar, .slds-tabs_default, .tabBarItem')) return true;
+    return false;
+  }
+
   function clickMessagingUtilityButton() {
+    const directMatches = document.querySelectorAll(
+      '[title="Messaging"], [aria-label="Messaging"]'
+    );
+    for (const el of directMatches) {
+      if (isInDisallowedAncestor(el)) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+      console.log('[Open SMS] clicking utility bar Messaging button (direct attr match)', el);
+      el.click();
+      return true;
+    }
+
     const all = document.querySelectorAll('button, a, [role="button"], li');
     const candidates = [];
     for (const el of all) {
-      if (el.closest('.oneUtilityBarPanel')) continue;
-      if (el.closest('[role="tab"], .uiTabBar, .slds-tabs_default, .tabBarItem')) continue;
+      if (isInDisallowedAncestor(el)) continue;
 
-      const directText = Array.from(el.childNodes)
-        .filter((n) => n.nodeType === Node.TEXT_NODE)
-        .map((n) => n.textContent)
-        .join('')
-        .trim();
       const title = (el.getAttribute('title') || '').trim();
       const aria = (el.getAttribute('aria-label') || '').trim();
       const text = (el.textContent || '').trim();
 
       const isMessaging =
-        /^messaging$/i.test(directText) ||
-        /^messaging$/i.test(title) ||
-        /^messaging$/i.test(aria) ||
-        (/^messaging$/i.test(text) && el.children.length <= 3);
+        /\bmessaging\b/i.test(title) ||
+        /\bmessaging\b/i.test(aria) ||
+        (/\bmessaging\b/i.test(text) && el.children.length <= 5 && text.length < 40);
 
       if (!isMessaging) continue;
 
@@ -79,6 +90,7 @@
     }
 
     candidates.sort((a, b) => b.rect.bottom - a.rect.bottom);
+    console.log('[Open SMS] utility bar candidates:', candidates.map((c) => c.el));
     if (candidates.length > 0) {
       candidates[0].el.click();
       return true;
