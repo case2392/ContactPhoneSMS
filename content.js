@@ -50,17 +50,38 @@
   }
 
   function clickMessagingUtilityButton() {
-    const buttons = document.querySelectorAll('button');
-    for (const b of buttons) {
-      const label = (b.textContent || '').trim();
-      const title = (b.getAttribute('title') || '').trim();
-      const aria = (b.getAttribute('aria-label') || '').trim();
-      if (/^messaging$/i.test(label) || /^messaging$/i.test(title) || /^messaging$/i.test(aria)) {
-        if (b.closest('[data-aura-class="oneUtilityBarItem"], .utilitybar, .utilityBar, .oneUtilityBar')) {
-          b.click();
-          return true;
-        }
-      }
+    const all = document.querySelectorAll('button, a, [role="button"], li');
+    const candidates = [];
+    for (const el of all) {
+      if (el.closest('.oneUtilityBarPanel')) continue;
+      if (el.closest('[role="tab"], .uiTabBar, .slds-tabs_default, .tabBarItem')) continue;
+
+      const directText = Array.from(el.childNodes)
+        .filter((n) => n.nodeType === Node.TEXT_NODE)
+        .map((n) => n.textContent)
+        .join('')
+        .trim();
+      const title = (el.getAttribute('title') || '').trim();
+      const aria = (el.getAttribute('aria-label') || '').trim();
+      const text = (el.textContent || '').trim();
+
+      const isMessaging =
+        /^messaging$/i.test(directText) ||
+        /^messaging$/i.test(title) ||
+        /^messaging$/i.test(aria) ||
+        (/^messaging$/i.test(text) && el.children.length <= 3);
+
+      if (!isMessaging) continue;
+
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+      candidates.push({ el, rect });
+    }
+
+    candidates.sort((a, b) => b.rect.bottom - a.rect.bottom);
+    if (candidates.length > 0) {
+      candidates[0].el.click();
+      return true;
     }
     return false;
   }
@@ -156,10 +177,13 @@
     if (!digitsOnly(e164)) return;
 
     if (button) button.disabled = true;
+    const originalText = button ? button.textContent : null;
+    if (button) button.textContent = 'Opening...';
     try {
       const panel = await openMessagingPanel();
       if (!panel) {
-        console.warn('[Open SMS] Messaging panel not found');
+        console.warn('[Open SMS] Could not open Messaging utility panel. ' +
+          'No element labeled "Messaging" was clickable in the utility bar.');
         return;
       }
 
@@ -176,12 +200,20 @@
 
       await startNewThreadFlow(panel, e164);
     } finally {
-      if (button) button.disabled = false;
+      if (button) {
+        button.disabled = false;
+        if (originalText !== null) button.textContent = originalText;
+      }
     }
+  }
+
+  function isInRecordDetailsLayout(el) {
+    return !!el.closest('records-record-layout-item, records-lwc-detail-panel records-record-layout-row');
   }
 
   function injectButton(target) {
     if (!target || target.hasAttribute(MARKED_ATTR)) return;
+    if (!isInRecordDetailsLayout(target)) return;
     const phoneText = getPhoneText(target);
     const digits = digitsOnly(phoneText);
     if (digits.length < 7) return;
