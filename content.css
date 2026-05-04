@@ -1,0 +1,35 @@
+.csms-open-sms-btn {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 1px 8px;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  background-color: #1589ee;
+  border: 1px solid #0070d2;
+  border-radius: 12px;
+  cursor: pointer;
+  vertical-align: middle;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.csms-open-sms-btn:hover {
+  background-color: #0070d2;
+}
+
+.csms-open-sms-btn:active {
+  background-color: #005fb2;
+}
+
+.csms-open-sms-btn:focus {
+  outline: 2px solid #1589ee;
+  outline-offset: 1px;
+}
+
+.csms-open-sms-btn[disabled] {
+  opacity: 0.6;
+  cursor: wait;
+}
