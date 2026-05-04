@@ -244,17 +244,9 @@
       }
 
       await waitFor(
-        () => panel.querySelector('li.thread-line-item, c-slds-sms-inbox, .sbc-contact-search input'),
+        () => panel.querySelector('button[title="New thread"], c-slds-sms-header'),
         3000
       );
-
-      const existing = findExistingThreadFor(panel, digits);
-      if (existing) {
-        console.log('[Open SMS] found existing thread for', digits);
-        clickThread(existing);
-        return;
-      }
-      console.log('[Open SMS] no existing thread for', digits, '- starting new thread flow');
 
       await startNewThreadFlow(panel, digits);
     } finally {
