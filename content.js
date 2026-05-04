@@ -278,6 +278,35 @@
     }
   }
 
+  function getPhoneRecordEntityType(el) {
+    let cur = el.parentElement;
+    while (cur && cur !== document.body) {
+      const iconEl = cur.querySelector(
+        'records-highlights2 lightning-icon[icon-name], ' +
+        'records-highlights-3 lightning-icon[icon-name], ' +
+        '[class*="highlightsPanel"] lightning-icon[icon-name], ' +
+        '[class*="HighlightsPanel"] lightning-icon[icon-name]'
+      );
+      if (iconEl) {
+        const name = iconEl.getAttribute('icon-name') || '';
+        const m = /standard:(\w+)/.exec(name);
+        return m ? m[1].toLowerCase() : null;
+      }
+      cur = cur.parentElement;
+    }
+    return null;
+  }
+
+  function isOnContactRecord(el) {
+    const entity = getPhoneRecordEntityType(el);
+    if (entity) return entity === 'contact';
+
+    const urlMatch = /\/lightning\/r\/(\w+)\//i.exec(location.href || '');
+    if (urlMatch) return urlMatch[1].toLowerCase() === 'contact';
+
+    return false;
+  }
+
   function shouldSkipInjection(el) {
     if (el.closest(
       'records-highlights2, records-highlights-3, records-highlight-item, ' +
@@ -295,6 +324,8 @@
       const title = titleEl ? (titleEl.getAttribute('title') || titleEl.textContent || '') : '';
       if (/\b(tcpa|dnc)\b/i.test(title)) return true;
     }
+
+    if (!isOnContactRecord(el)) return true;
 
     return false;
   }
