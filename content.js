@@ -56,6 +56,24 @@
   }
 
   function clickMessagingUtilityButton() {
+    const utilityButtons = document.querySelectorAll(
+      'button.utilityBarButton, button.slds-utility-bar__action, .oneUtilityBarItem button, .slds-utility-bar__item button'
+    );
+    for (const b of utilityButtons) {
+      if (isInDisallowedAncestor(b)) continue;
+      const titleSpan = b.querySelector('.itemTitle, .slds-utility-bar__text');
+      const labelText = titleSpan
+        ? (titleSpan.textContent || '').trim()
+        : (b.textContent || '').trim();
+      if (/^messaging$/i.test(labelText)) {
+        const rect = b.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+        console.log('[Open SMS] clicking utility bar Messaging button', b);
+        b.click();
+        return true;
+      }
+    }
+
     const directMatches = document.querySelectorAll(
       '[title="Messaging"], [aria-label="Messaging"]'
     );
@@ -63,38 +81,12 @@
       if (isInDisallowedAncestor(el)) continue;
       const rect = el.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) continue;
-      console.log('[Open SMS] clicking utility bar Messaging button (direct attr match)', el);
+      console.log('[Open SMS] clicking utility bar Messaging button (attr match)', el);
       el.click();
       return true;
     }
 
-    const all = document.querySelectorAll('button, a, [role="button"], li');
-    const candidates = [];
-    for (const el of all) {
-      if (isInDisallowedAncestor(el)) continue;
-
-      const title = (el.getAttribute('title') || '').trim();
-      const aria = (el.getAttribute('aria-label') || '').trim();
-      const text = (el.textContent || '').trim();
-
-      const isMessaging =
-        /\bmessaging\b/i.test(title) ||
-        /\bmessaging\b/i.test(aria) ||
-        (/\bmessaging\b/i.test(text) && el.children.length <= 5 && text.length < 40);
-
-      if (!isMessaging) continue;
-
-      const rect = el.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) continue;
-      candidates.push({ el, rect });
-    }
-
-    candidates.sort((a, b) => b.rect.bottom - a.rect.bottom);
-    console.log('[Open SMS] utility bar candidates:', candidates.map((c) => c.el));
-    if (candidates.length > 0) {
-      candidates[0].el.click();
-      return true;
-    }
+    console.warn('[Open SMS] no utility bar Messaging button found');
     return false;
   }
 
@@ -162,7 +154,6 @@
       const inputs = panel.querySelectorAll('input');
       for (const i of inputs) {
         if (i.disabled) continue;
-        if (i.closest('.sbc-contact-search')) continue;
         if (i.offsetParent === null) continue;
         const type = (i.getAttribute('type') || '').toLowerCase();
         if (type && type !== 'search' && type !== 'text') continue;
