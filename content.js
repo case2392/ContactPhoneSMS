@@ -230,6 +230,13 @@
 
     if (el.closest('.oneUtilityBarPanel')) return true;
 
+    const section = el.closest('lightning-accordion-section');
+    if (section) {
+      const titleEl = section.querySelector('.slds-accordion__summary-content[title]');
+      const title = titleEl ? (titleEl.getAttribute('title') || titleEl.textContent || '') : '';
+      if (/\b(tcpa|dnc)\b/i.test(title)) return true;
+    }
+
     return false;
   }
 
