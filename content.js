@@ -140,13 +140,34 @@
     realClick(inner);
   }
 
+  function findBackButton(panel) {
+    return panel.querySelector('button[title="Back"], lightning-button-icon button[title="Back"]');
+  }
+
+  async function backOutToInbox(panel) {
+    let guard = 0;
+    while (guard < 5) {
+      const back = findBackButton(panel);
+      if (!back || back.offsetParent === null || back.disabled) return;
+      console.log('[Open SMS] step 0: clicking Back to return to inbox', back);
+      realClick(back);
+      await new Promise((r) => setTimeout(r, 200));
+      guard++;
+    }
+  }
+
   async function startNewThreadFlow(panel, digits) {
     console.log('[Open SMS] startNewThreadFlow for', digits);
 
-    const newThreadBtn = Array.from(panel.querySelectorAll('button')).find((b) => {
-      const t = (b.getAttribute('title') || b.textContent || '').trim();
-      return /^new thread$/i.test(t);
-    });
+    await backOutToInbox(panel);
+
+    const newThreadBtn = await waitFor(() => {
+      return Array.from(panel.querySelectorAll('button')).find((b) => {
+        if (b.offsetParent === null || b.disabled) return false;
+        const t = (b.getAttribute('title') || b.textContent || '').trim();
+        return /^new thread$/i.test(t);
+      }) || null;
+    }, 3000);
     if (!newThreadBtn) {
       console.warn('[Open SMS] step 1: New thread button NOT found');
       return false;
