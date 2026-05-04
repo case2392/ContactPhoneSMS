@@ -8,12 +8,15 @@
     return (text || '').replace(/\D/g, '');
   }
 
-  function normalizeE164(text) {
-    const d = digitsOnly(text);
-    if (!d) return '';
-    if (d.length === 10) return '+1' + d;
-    if (d.length === 11 && d.startsWith('1')) return '+' + d;
-    return '+' + d;
+  function realClick(el) {
+    try {
+      const opts = { bubbles: true, cancelable: true, composed: true, view: window };
+      el.dispatchEvent(new PointerEvent('pointerdown', opts));
+      el.dispatchEvent(new MouseEvent('mousedown', opts));
+      el.dispatchEvent(new PointerEvent('pointerup', opts));
+      el.dispatchEvent(new MouseEvent('mouseup', opts));
+    } catch (_) {}
+    try { el.click(); } catch (_) {}
   }
 
   function getPhoneText(element) {
@@ -69,7 +72,7 @@
         const rect = b.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) continue;
         console.log('[Open SMS] clicking utility bar Messaging button', b);
-        b.click();
+        realClick(b);
         return true;
       }
     }
@@ -82,7 +85,7 @@
       const rect = el.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) continue;
       console.log('[Open SMS] clicking utility bar Messaging button (attr match)', el);
-      el.click();
+      realClick(el);
       return true;
     }
 
@@ -115,15 +118,17 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  function findExistingThreadFor(panel, e164) {
-    const target = digitsOnly(e164);
+  function findExistingThreadFor(panel, digits) {
+    const target = (digits || '').slice(-10);
     if (!target) return null;
     const items = panel.querySelectorAll('li.thread-line-item');
     for (const li of items) {
       const participants = li.querySelectorAll('.participant, .participantZuid');
       if (participants.length === 1) {
-        const t = participants[0].getAttribute('title') || participants[0].textContent || '';
-        if (digitsOnly(t) === target) return li;
+        const t = digitsOnly(
+          participants[0].getAttribute('title') || participants[0].textContent || ''
+        ).slice(-10);
+        if (t === target) return li;
       }
     }
     return null;
@@ -131,11 +136,12 @@
 
   function clickThread(li) {
     const inner = li.querySelector('c-slds-sms-inbox-thread, .row-container') || li;
-    inner.click();
+    console.log('[Open SMS] clicking existing thread', li);
+    realClick(inner);
   }
 
-  async function startNewThreadFlow(panel, e164) {
-    console.log('[Open SMS] startNewThreadFlow for', e164);
+  async function startNewThreadFlow(panel, digits) {
+    console.log('[Open SMS] startNewThreadFlow for', digits);
 
     const newThreadBtn = Array.from(panel.querySelectorAll('button')).find((b) => {
       const t = (b.getAttribute('title') || b.textContent || '').trim();
@@ -146,7 +152,7 @@
       return false;
     }
     console.log('[Open SMS] step 1: clicking New thread', newThreadBtn);
-    newThreadBtn.click();
+    realClick(newThreadBtn);
 
     await new Promise((r) => setTimeout(r, 200));
 
@@ -169,16 +175,26 @@
     console.log('[Open SMS] step 2: found participant input', input);
 
     input.focus();
-    setNativeInputValue(input, digitsOnly(e164));
-    console.log('[Open SMS] step 3: typed digits into input');
+    setNativeInputValue(input, digits);
+    console.log('[Open SMS] step 3: typed', digits, 'into input');
 
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 400));
 
     const addBtn = await waitFor(() => {
-      const buttons = panel.querySelectorAll('button');
+      const direct = panel.querySelector('lightning-button-icon-stateful.add-button button, .add-button button');
+      if (direct && direct.offsetParent !== null && !direct.disabled) return direct;
+
+      const buttons = Array.from(panel.querySelectorAll('button'));
       for (const b of buttons) {
         if (b.offsetParent === null || b.disabled) continue;
-        if (b.closest('.sbc-contact-search, .sms-header, .search-input-container')) continue;
+        if (b.closest('.panel-header, .slds-utility-panel__header, .sms-header')) continue;
+        if (b.getAttribute('aria-haspopup') === 'true') continue;
+        if (b.classList.contains('slds-input__icon')) continue;
+        if (b.classList.contains('start-button')) continue;
+        if (b.classList.contains('slds-button_icon-border')) return b;
+      }
+      for (const b of buttons) {
+        if (b.offsetParent === null || b.disabled) continue;
         const label = (b.textContent || '').trim();
         const title = (b.getAttribute('title') || '').trim();
         const aria = (b.getAttribute('aria-label') || '').trim();
@@ -192,13 +208,14 @@
       return false;
     }
     console.log('[Open SMS] step 4: clicking + button', addBtn);
-    addBtn.click();
+    realClick(addBtn);
 
     const startBtn = await waitFor(() => {
       const buttons = panel.querySelectorAll('button');
       for (const b of buttons) {
         if (b.disabled || b.offsetParent === null) continue;
-        if (/^start$/i.test((b.textContent || '').trim())) return b;
+        if (b.getAttribute('aria-disabled') === 'true') continue;
+        if (b.classList.contains('start-button') || /^start$/i.test((b.textContent || '').trim())) return b;
       }
       return null;
     }, 4000);
@@ -207,13 +224,13 @@
       return false;
     }
     console.log('[Open SMS] step 5: clicking Start', startBtn);
-    startBtn.click();
+    realClick(startBtn);
     return true;
   }
 
   async function openSmsFor(rawPhone, button) {
-    const e164 = normalizeE164(rawPhone);
-    if (!digitsOnly(e164)) return;
+    const digits = digitsOnly(rawPhone);
+    if (!digits) return;
 
     if (button) button.disabled = true;
     const originalText = button ? button.textContent : null;
@@ -228,16 +245,18 @@
 
       await waitFor(
         () => panel.querySelector('li.thread-line-item, c-slds-sms-inbox, .sbc-contact-search input'),
-        2500
+        3000
       );
 
-      const existing = findExistingThreadFor(panel, e164);
+      const existing = findExistingThreadFor(panel, digits);
       if (existing) {
+        console.log('[Open SMS] found existing thread for', digits);
         clickThread(existing);
         return;
       }
+      console.log('[Open SMS] no existing thread for', digits, '- starting new thread flow');
 
-      await startNewThreadFlow(panel, e164);
+      await startNewThreadFlow(panel, digits);
     } finally {
       if (button) {
         button.disabled = false;
