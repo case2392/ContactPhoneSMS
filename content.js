@@ -100,9 +100,13 @@
 
   async function openMessagingPanel() {
     let panel = findMessagingPanel();
-    if (panel && isPanelOpen(panel)) return panel;
+    if (panel && isPanelOpen(panel)) {
+      console.log('[Open SMS] panel already open');
+      return panel;
+    }
 
-    clickMessagingUtilityButton();
+    const clicked = clickMessagingUtilityButton();
+    console.log('[Open SMS] tried to click utility bar button, success=', clicked);
 
     return await waitFor(() => {
       const p = findMessagingPanel();
@@ -139,37 +143,65 @@
   }
 
   async function startNewThreadFlow(panel, e164) {
+    console.log('[Open SMS] startNewThreadFlow for', e164);
+
     const newThreadBtn = Array.from(panel.querySelectorAll('button')).find((b) => {
       const t = (b.getAttribute('title') || b.textContent || '').trim();
       return /^new thread$/i.test(t);
     });
-    if (!newThreadBtn) return false;
+    if (!newThreadBtn) {
+      console.warn('[Open SMS] step 1: New thread button NOT found');
+      return false;
+    }
+    console.log('[Open SMS] step 1: clicking New thread', newThreadBtn);
     newThreadBtn.click();
 
+    await new Promise((r) => setTimeout(r, 200));
+
     const input = await waitFor(() => {
-      const inputs = panel.querySelectorAll('input[type="search"], input.slds-input');
+      const inputs = panel.querySelectorAll('input');
       for (const i of inputs) {
-        if (i.offsetParent !== null && !i.disabled) return i;
+        if (i.disabled) continue;
+        if (i.closest('.sbc-contact-search')) continue;
+        if (i.offsetParent === null) continue;
+        const type = (i.getAttribute('type') || '').toLowerCase();
+        if (type && type !== 'search' && type !== 'text') continue;
+        return i;
       }
       return null;
     }, 5000);
-    if (!input) return false;
+    if (!input) {
+      console.warn('[Open SMS] step 2: participant search input NOT found. Inputs in panel:',
+        Array.from(panel.querySelectorAll('input')));
+      return false;
+    }
+    console.log('[Open SMS] step 2: found participant input', input);
 
     input.focus();
     setNativeInputValue(input, digitsOnly(e164));
+    console.log('[Open SMS] step 3: typed digits into input');
+
+    await new Promise((r) => setTimeout(r, 300));
 
     const addBtn = await waitFor(() => {
       const buttons = panel.querySelectorAll('button');
       for (const b of buttons) {
         if (b.offsetParent === null || b.disabled) continue;
+        if (b.closest('.sbc-contact-search, .sms-header, .search-input-container')) continue;
         const label = (b.textContent || '').trim();
         const title = (b.getAttribute('title') || '').trim();
         const aria = (b.getAttribute('aria-label') || '').trim();
-        if (label === '+' || title === '+' || /^add( participant)?$/i.test(aria)) return b;
+        if (label === '+' || title === '+' || /^add(\s+participant)?$/i.test(aria) || /^add$/i.test(title)) return b;
       }
       return null;
     }, 5000);
-    if (addBtn) addBtn.click();
+    if (!addBtn) {
+      console.warn('[Open SMS] step 4: add (+) button NOT found. Visible buttons in panel:',
+        Array.from(panel.querySelectorAll('button')).filter((b) => b.offsetParent !== null));
+      return false;
+    }
+    console.log('[Open SMS] step 4: clicking + button', addBtn);
+    addBtn.click();
 
     const startBtn = await waitFor(() => {
       const buttons = panel.querySelectorAll('button');
@@ -179,8 +211,12 @@
       }
       return null;
     }, 4000);
-    if (startBtn) startBtn.click();
-
+    if (!startBtn) {
+      console.warn('[Open SMS] step 5: Start button NOT found or still disabled');
+      return false;
+    }
+    console.log('[Open SMS] step 5: clicking Start', startBtn);
+    startBtn.click();
     return true;
   }
 

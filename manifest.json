@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Salesforce Contact SMS Quick Open",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Adds an Open SMS button next to phone numbers on Salesforce records that opens the Messaging utility to a thread with that number.",
   "content_scripts": [
     {
