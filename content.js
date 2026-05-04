@@ -207,13 +207,23 @@
     }
   }
 
-  function isInRecordDetailsLayout(el) {
-    return !!el.closest('records-record-layout-item, records-lwc-detail-panel records-record-layout-row');
+  function shouldSkipInjection(el) {
+    if (el.closest(
+      'records-highlights2, records-highlights-3, records-highlight-item, ' +
+      'forceHighlightsPanel, oneHighlightsPanel, ' +
+      '[class*="HighlightsPanel"], [class*="highlightsPanel"], [class*="highlights2"]'
+    )) return true;
+
+    if (el.closest('lightning-datatable, [role="grid"], table.slds-table')) return true;
+
+    if (el.closest('.oneUtilityBarPanel')) return true;
+
+    return false;
   }
 
   function injectButton(target) {
     if (!target || target.hasAttribute(MARKED_ATTR)) return;
-    if (!isInRecordDetailsLayout(target)) return;
+    if (shouldSkipInjection(target)) return;
     const phoneText = getPhoneText(target);
     const digits = digitsOnly(phoneText);
     if (digits.length < 7) return;
